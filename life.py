@@ -1,128 +1,150 @@
 import pygame
-import numpy as np
-
-# ---------------- CONFIG ----------------
-WIDTH, HEIGHT = 800, 600
-CELL_SIZE = 10
-ROWS = HEIGHT // CELL_SIZE
-COLS = WIDTH // CELL_SIZE
-FPS = 10
-
-# Colors
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
-GRID_COLOR = (40, 40, 40)
-
-# ----------------------------------------
-
-pygame.init()
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Game of Life")
-clock = pygame.time.Clock()
-
-# Create grid
-grid = np.zeros((ROWS, COLS))
+import random
 
 
-# Draw grid cells
-def draw_grid():
-    screen.fill(BLACK)
+class Config:
+    WIDTH = 800
+    HEIGHT = 600
+    CELL_SIZE = 10
+    FPS = 10
 
-    for row in range(ROWS):
-        for col in range(COLS):
-            if grid[row][col] == 1:
-                pygame.draw.rect(
-                    screen,
-                    WHITE,
-                    (col * CELL_SIZE,
-                     row * CELL_SIZE,
-                     CELL_SIZE,
-                     CELL_SIZE)
-                )
+    ROWS = HEIGHT // CELL_SIZE
+    COLS = WIDTH // CELL_SIZE
 
-    # Draw grid lines
-    for x in range(0, WIDTH, CELL_SIZE):
-        pygame.draw.line(screen, GRID_COLOR, (x, 0), (x, HEIGHT))
-
-    for y in range(0, HEIGHT, CELL_SIZE):
-        pygame.draw.line(screen, GRID_COLOR, (0, y), (WIDTH, y))
+    BLACK = (0, 0, 0)
+    WHITE = (255, 255, 255)
+    GRID_COLOR = (40, 40, 40)
 
 
-# Count neighbors
-def count_neighbors(r, c):
-    total = 0
+class Grid:
+    def __init__(self):
+        self.rows = Config.ROWS
+        self.cols = Config.COLS
+        self.grid = self.create_grid()
 
-    for i in range(-1, 2):
-        for j in range(-1, 2):
-            if i == 0 and j == 0:
-                continue
+    def create_grid(self):
+        return [[random.choice([0, 1]) for _ in range(self.cols)]
+                for _ in range(self.rows)]
 
-            nr = r + i
-            nc = c + j
+    def draw(self, surface):
+        surface.fill(Config.BLACK)
 
-            if 0 <= nr < ROWS and 0 <= nc < COLS:
-                total += grid[nr][nc]
+        for row in range(self.rows):
+            for col in range(self.cols):
+                if self.grid[row][col]:
+                    pygame.draw.rect(
+                        surface,
+                        Config.WHITE,
+                        (col * Config.CELL_SIZE,
+                         row * Config.CELL_SIZE,
+                         Config.CELL_SIZE,
+                         Config.CELL_SIZE)
+                    )
 
-    return total
+        # Draw grid lines (optional)
+        for x in range(0, Config.WIDTH, Config.CELL_SIZE):
+            pygame.draw.line(surface, Config.GRID_COLOR, (x, 0), (x, Config.HEIGHT))
+
+        for y in range(0, Config.HEIGHT, Config.CELL_SIZE):
+            pygame.draw.line(surface, Config.GRID_COLOR, (0, y), (Config.WIDTH, y))
+
+    def count_neighbors(self, row, col):
+        directions = [(-1, -1), (-1, 0), (-1, 1),
+                      (0, -1),         (0, 1),
+                      (1, -1),  (1, 0), (1, 1)]
+
+        count = 0
+
+        for dr, dc in directions:
+            r = row + dr
+            c = col + dc
+
+            if 0 <= r < self.rows and 0 <= c < self.cols:
+                count += self.grid[r][c]
+
+        return count
+
+    def update(self):
+        new_grid = [[0 for _ in range(self.cols)]
+                    for _ in range(self.rows)]
+
+        for row in range(self.rows):
+            for col in range(self.cols):
+                neighbors = self.count_neighbors(row, col)
+
+                # Conway Rules
+                if self.grid[row][col] == 1:
+                    if neighbors == 2 or neighbors == 3:
+                        new_grid[row][col] = 1
+                else:
+                    if neighbors == 3:
+                        new_grid[row][col] = 1
+
+        self.grid = new_grid
+
+    def toggle_cell(self, x, y):
+        col = x // Config.CELL_SIZE
+        row = y // Config.CELL_SIZE
+
+        if 0 <= row < self.rows and 0 <= col < self.cols:
+            self.grid[row][col] = 1
+
+    def clear(self):
+        self.grid = [[0 for _ in range(self.cols)]
+                     for _ in range(self.rows)]
 
 
-# Update logic
-def update_grid():
-    global grid
-    new_grid = grid.copy()
+class Game:
+    def __init__(self):
+        pygame.init()
+        self.screen = pygame.display.set_mode((Config.WIDTH, Config.HEIGHT))
+        pygame.display.set_caption("Conway's Game of Life (OOP)")
+        self.clock = pygame.time.Clock()
 
-    for row in range(ROWS):
-        for col in range(COLS):
-            neighbors = count_neighbors(row, col)
+        self.grid = Grid()
+        self.running = True
+        self.paused = False
 
-            if grid[row][col] == 1:
-                if neighbors < 2 or neighbors > 3:
-                    new_grid[row][col] = 0
-            else:
-                if neighbors == 3:
-                    new_grid[row][col] = 1
+    def handle_events(self):
+        for event in pygame.event.get():
 
-    grid = new_grid
+            if event.type == pygame.QUIT:
+                self.running = False
 
+            if event.type == pygame.KEYDOWN:
 
-# Main loop
-running = True
-paused = True
+                if event.key == pygame.K_SPACE:
+                    self.paused = not self.paused
 
-while running:
-    clock.tick(FPS)
+                if event.key == pygame.K_c:
+                    self.grid.clear()
 
-    for event in pygame.event.get():
-
-        if event.type == pygame.QUIT:
-            running = False
-
-        # Toggle pause
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE:
-                paused = not paused
-
-            if event.key == pygame.K_c:
-                grid = np.zeros((ROWS, COLS))
-
-        # Mouse click to add cells
+        # Mouse drawing
         if pygame.mouse.get_pressed()[0]:
             x, y = pygame.mouse.get_pos()
-            col = x // CELL_SIZE
-            row = y // CELL_SIZE
-            grid[row][col] = 1
+            self.grid.toggle_cell(x, y)
 
-    if not paused:
-        update_grid()
+    def update(self):
+        if not self.paused:
+            self.grid.update()
 
-    draw_grid()
-    pygame.display.update()
+    def render(self):
+        self.grid.draw(self.screen)
+        pygame.display.update()
 
-pygame.quit()
+    def run(self):
+        while self.running:
+            self.clock.tick(Config.FPS)
+            self.handle_events()
+            self.update()
+            self.render()
+
+        pygame.quit()
 
 
-
-
+if __name__ == "__main__":
+    game = Game()
+    game.run()
 
 
 
