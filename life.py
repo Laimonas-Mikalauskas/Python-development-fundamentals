@@ -1,111 +1,166 @@
 import pygame
 import random
+from typing import List
 
 
-class Config:
-    WIDTH = 800
-    HEIGHT = 600
+class Settings:
+    """Application configuration and constants."""
+
+    WINDOW_WIDTH = 800
+    WINDOW_HEIGHT = 600
     CELL_SIZE = 10
-    FPS = 10
 
-    ROWS = HEIGHT // CELL_SIZE
-    COLS = WIDTH // CELL_SIZE
+    FPS = 12
 
-    BLACK = (0, 0, 0)
-    WHITE = (255, 255, 255)
-    GRID_COLOR = (40, 40, 40)
+    ROWS = WINDOW_HEIGHT // CELL_SIZE
+    COLS = WINDOW_WIDTH // CELL_SIZE
+
+    BACKGROUND_COLOR = (20, 20, 20)
+    CELL_COLOR = (230, 230, 230)
+    GRID_COLOR = (50, 50, 50)
 
 
 class Grid:
-    def __init__(self):
-        self.rows = Config.ROWS
-        self.cols = Config.COLS
-        self.grid = self.create_grid()
+    """Handles simulation logic and grid state."""
 
-    def create_grid(self):
-        return [[random.choice([0, 1]) for _ in range(self.cols)]
-                for _ in range(self.rows)]
+    def __init__(self) -> None:
+        self.rows = Settings.ROWS
+        self.cols = Settings.COLS
+        self.grid: List[List[int]] = self._generate_random_grid()
 
-    def draw(self, surface):
-        surface.fill(Config.BLACK)
+    def _generate_random_grid(self) -> List[List[int]]:
+        """Create initial randomized grid."""
+        return [
+            [random.choice([0, 1]) for _ in range(self.cols)]
+            for _ in range(self.rows)
+        ]
+
+    def clear(self) -> None:
+        """Reset grid to empty state."""
+        self.grid = [[0 for _ in range(self.cols)]
+                     for _ in range(self.rows)]
+
+    def toggle_cell(self, mouse_x: int, mouse_y: int) -> None:
+        """Activate cell using mouse coordinates."""
+        col = mouse_x // Settings.CELL_SIZE
+        row = mouse_y // Settings.CELL_SIZE
+
+        if 0 <= row < self.rows and 0 <= col < self.cols:
+            self.grid[row][col] = 1
+
+    def update(self) -> None:
+        """Apply Conway's rules and update grid state."""
+        new_grid = [[0 for _ in range(self.cols)]
+                    for _ in range(self.rows)]
 
         for row in range(self.rows):
             for col in range(self.cols):
-                if self.grid[row][col]:
-                    pygame.draw.rect(
-                        surface,
-                        Config.WHITE,
-                        (col * Config.CELL_SIZE,
-                         row * Config.CELL_SIZE,
-                         Config.CELL_SIZE,
-                         Config.CELL_SIZE)
-                    )
+                neighbors = self._count_neighbors(row, col)
+                cell_alive = self.grid[row][col] == 1
 
-        # Draw grid lines (optional)
-        for x in range(0, Config.WIDTH, Config.CELL_SIZE):
-            pygame.draw.line(surface, Config.GRID_COLOR, (x, 0), (x, Config.HEIGHT))
+                if cell_alive and neighbors in (2, 3):
+                    new_grid[row][col] = 1
 
-        for y in range(0, Config.HEIGHT, Config.CELL_SIZE):
-            pygame.draw.line(surface, Config.GRID_COLOR, (0, y), (Config.WIDTH, y))
+                if not cell_alive and neighbors == 3:
+                    new_grid[row][col] = 1
 
-    def count_neighbors(self, row, col):
-        directions = [(-1, -1), (-1, 0), (-1, 1),
-                      (0, -1),         (0, 1),
-                      (1, -1),  (1, 0), (1, 1)]
+        self.grid = new_grid
+
+    def _count_neighbors(self, row: int, col: int) -> int:
+        """Count alive neighbors for a given cell."""
+        directions = [
+            (-1, -1), (-1, 0), (-1, 1),
+            (0, -1),           (0, 1),
+            (1, -1),  (1, 0),  (1, 1)
+        ]
 
         count = 0
 
-        for dr, dc in directions:
-            r = row + dr
-            c = col + dc
+        for dx, dy in directions:
+            r = row + dx
+            c = col + dy
 
             if 0 <= r < self.rows and 0 <= c < self.cols:
                 count += self.grid[r][c]
 
         return count
 
-    def update(self):
-        new_grid = [[0 for _ in range(self.cols)]
-                    for _ in range(self.rows)]
 
-        for row in range(self.rows):
-            for col in range(self.cols):
-                neighbors = self.count_neighbors(row, col)
+class Renderer:
+    """Responsible for drawing grid and UI elements."""
 
-                # Conway Rules
-                if self.grid[row][col] == 1:
-                    if neighbors == 2 or neighbors == 3:
-                        new_grid[row][col] = 1
-                else:
-                    if neighbors == 3:
-                        new_grid[row][col] = 1
+    def __init__(self, screen: pygame.Surface) -> None:
+        self.screen = screen
 
-        self.grid = new_grid
+    def draw(self, grid: Grid) -> None:
+        self.screen.fill(Settings.BACKGROUND_COLOR)
 
-    def toggle_cell(self, x, y):
-        col = x // Config.CELL_SIZE
-        row = y // Config.CELL_SIZE
+        for row in range(grid.rows):
+            for col in range(grid.cols):
+                if grid.grid[row][col]:
+                    pygame.draw.rect(
+                        self.screen,
+                        Settings.CELL_COLOR,
+                        (
+                            col * Settings.CELL_SIZE,
+                            row * Settings.CELL_SIZE,
+                            Settings.CELL_SIZE,
+                            Settings.CELL_SIZE
+                        )
+                    )
 
-        if 0 <= row < self.rows and 0 <= col < self.cols:
-            self.grid[row][col] = 1
+        self._draw_grid_lines()
 
-    def clear(self):
-        self.grid = [[0 for _ in range(self.cols)]
-                     for _ in range(self.rows)]
+    def _draw_grid_lines(self) -> None:
+        for x in range(0, Settings.WINDOW_WIDTH, Settings.CELL_SIZE):
+            pygame.draw.line(
+                self.screen,
+                Settings.GRID_COLOR,
+                (x, 0),
+                (x, Settings.WINDOW_HEIGHT)
+            )
+
+        for y in range(0, Settings.WINDOW_HEIGHT, Settings.CELL_SIZE):
+            pygame.draw.line(
+                self.screen,
+                Settings.GRID_COLOR,
+                (0, y),
+                (Settings.WINDOW_WIDTH, y)
+            )
 
 
 class Game:
-    def __init__(self):
+    """Main application controller."""
+
+    def __init__(self) -> None:
         pygame.init()
-        self.screen = pygame.display.set_mode((Config.WIDTH, Config.HEIGHT))
-        pygame.display.set_caption("Conway's Game of Life (OOP)")
+
+        self.screen = pygame.display.set_mode(
+            (Settings.WINDOW_WIDTH, Settings.WINDOW_HEIGHT)
+        )
+
+        pygame.display.set_caption("Conway's Game of Life — OOP Simulation")
+
         self.clock = pygame.time.Clock()
 
         self.grid = Grid()
+        self.renderer = Renderer(self.screen)
+
         self.running = True
         self.paused = False
 
-    def handle_events(self):
+    def run(self) -> None:
+        """Main game loop."""
+        while self.running:
+            self.clock.tick(Settings.FPS)
+
+            self._handle_events()
+            self._update()
+            self._render()
+
+        pygame.quit()
+
+    def _handle_events(self) -> None:
         for event in pygame.event.get():
 
             if event.type == pygame.QUIT:
@@ -116,36 +171,25 @@ class Game:
                 if event.key == pygame.K_SPACE:
                     self.paused = not self.paused
 
-                if event.key == pygame.K_c:
+                if event.key == pygame.K_r:
                     self.grid.clear()
 
-        # Mouse drawing
         if pygame.mouse.get_pressed()[0]:
             x, y = pygame.mouse.get_pos()
             self.grid.toggle_cell(x, y)
 
-    def update(self):
+    def _update(self) -> None:
         if not self.paused:
             self.grid.update()
 
-    def render(self):
-        self.grid.draw(self.screen)
+    def _render(self) -> None:
+        self.renderer.draw(self.grid)
         pygame.display.update()
-
-    def run(self):
-        while self.running:
-            self.clock.tick(Config.FPS)
-            self.handle_events()
-            self.update()
-            self.render()
-
-        pygame.quit()
 
 
 if __name__ == "__main__":
-    game = Game()
-    game.run()
-
+    app = Game()
+    app.run()
 
 
 
