@@ -1,4 +1,4 @@
-## Python Programming Fundamentals
+## Python Development Fundamentals
 
 
 This repository contains exercises and small implementations designed to reinforce core Python programming principles.
