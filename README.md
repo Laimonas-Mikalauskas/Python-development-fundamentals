@@ -13,5 +13,5 @@ This repository contains exercises and small implementations designed to reinfor
 - Object-Oriented Programming fundamentals (classes, attributes, methods)
 
 ### Learning Outcome
-By completing these exercises I developed a strong understanding of Python syntax, program structure, and OOP usage in logical problem solving, which forms the foundation of data management systems, lightweight web applications and games development.
+By completing these exercises I developed a strong understanding of Python syntax, program structure and OOP usage that forms the foundation of data management systems, lightweight web applications and games development.
 
